@@ -46,7 +46,7 @@ casella e risponde, affiancato da una interfaccia di amministrazione.
 ## Architettura
 
 ```
-Utente --(forward)--> Mailbox Bluehost (IMAP)
+Utente --(forward)--> Mailbox dedicata (qualsiasi server IMAP/SMTP)
                             |
                             v
                     [worker systemd timer, ogni ~2 min]
@@ -76,8 +76,13 @@ stesso file di configurazione.
 ## Requisiti
 
 - Linux/Debian con Python 3.10+
-- Accesso IMAP alla mailbox Bluehost dedicata (es. `spamreport@tuodominio.it`)
-- Un relay SMTP già configurato per l'invio delle risposte
+- Accesso IMAP a una mailbox dedicata (es. `spamreport@tuodominio.it`) —
+  **qualsiasi provider/hosting con IMAP standard va bene** (Bluehost e altri
+  hosting cPanel, Gmail/Google Workspace, Office 365, un server self-hosted,
+  ecc.): il progetto è nato testandolo su Bluehost, ma non ne dipende in
+  alcun modo
+- Un relay SMTP già configurato per l'invio delle risposte (idem: qualsiasi
+  server SMTP standard con autenticazione)
 - Rspamd raggiungibile via HTTP (installazione locale standalone, porta
   controller di default `11334`) — opzionale ma consigliato, il sistema
   degrada correttamente se non disponibile

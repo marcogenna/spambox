@@ -5,7 +5,7 @@
 # su quanto scritto qui. Non committare mai config.yaml con credenziali reali.
 
 imap:
-  host: "mail.bluehost-example.com"
+  host: "mail.tuoprovider-example.com"  # qualsiasi server IMAP/SMTP va bene (Bluehost, Gmail, Office 365, self-hosted...)
   port: 993
   use_ssl: true
   username: "spamreport@tuodominio.it"
@@ -21,7 +21,7 @@ imap:
   retry_backoff_seconds: 5
 
 smtp:
-  host: "mail.bluehost-example.com"
+  host: "mail.tuoprovider-example.com"  # qualsiasi server IMAP/SMTP va bene (Bluehost, Gmail, Office 365, self-hosted...)
   port: 587
   use_starttls: true
   use_ssl: false
