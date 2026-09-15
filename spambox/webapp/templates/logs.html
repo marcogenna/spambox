@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Storico analisi</h1>
+
+<form class="inline-form" method="get" action="/logs">
+  <input type="date" name="date_from" value="{{ filters.date_from }}" title="Da data">
+  <input type="date" name="date_to" value="{{ filters.date_to }}" title="A data">
+  <select name="verdict">
+    <option value="" {% if not filters.verdict %}selected{% endif %}>Tutti i verdetti</option>
+    <option value="Sicura" {% if filters.verdict == "Sicura" %}selected{% endif %}>Sicura</option>
+    <option value="Sospetta" {% if filters.verdict == "Sospetta" %}selected{% endif %}>Sospetta</option>
+    <option value="Altamente pericolosa" {% if filters.verdict == "Altamente pericolosa" %}selected{% endif %}>Altamente pericolosa</option>
+    <option value="Ignorata" {% if filters.verdict == "Ignorata" %}selected{% endif %}>Ignorata (mittente non autorizzato)</option>
+  </select>
+  <input type="text" name="sender" placeholder="Filtra per mittente" value="{{ filters.sender }}">
+  <button type="submit">Filtra</button>
+</form>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Data/ora</th><th>Mittente</th><th>Oggetto</th><th>Score</th>
+      <th>Verdetto</th><th>Lookalike</th><th>Brand</th><th>VirusTotal</th><th>URLhaus</th><th>Safe Browsing</th><th>Età dominio</th><th>Risposta</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in logs %}
+    <tr class="verdict-row verdict-{{ log.verdict | lower | replace(' ', '-') }}">
+      <td>{{ log.processed_at }}</td>
+      <td>{{ log.from_address }}</td>
+      <td>{{ log.subject }}</td>
+      <td>{{ "%.1f"|format(log.risk_score or 0) }}</td>
+      <td><span class="badge">{{ log.verdict }}</span></td>
+      <td>
+        {% if log.lookalike.matches %}
+          {% for m in log.lookalike.matches %}
+            <div class="warning">{{ m.suspect_domain }} ~ {{ m.legitimate_domain }}</div>
+          {% endfor %}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if log.brand_impersonation.matches %}
+          {% for m in log.brand_impersonation.matches %}
+            <div class="warning">"{{ m.claimed_brand }}" da {{ m.sender_domain }}</div>
+          {% endfor %}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% set vt = log.virustotal %}
+        {% if vt.available %}
+          {% set malicious_urls = vt.urls | selectattr("status", "equalto", "malicious") | list %}
+          {% set malicious_files = vt.files | selectattr("status", "equalto", "malicious") | list %}
+          {% if malicious_urls or malicious_files %}
+            <span class="warning">{{ malicious_urls|length }} URL, {{ malicious_files|length }} allegati malevoli</span>
+          {% elif vt.quota_exceeded %}
+            <span class="hint">quota superata</span>
+          {% else %}OK{% endif %}
+        {% else %}n/d{% endif %}
+      </td>
+      <td>
+        {% set uh = log.urlhaus %}
+        {% if uh.available %}
+          {% set uh_malicious = uh.urls | selectattr("status", "equalto", "malicious") | list %}
+          {% if uh_malicious %}
+            <span class="warning">{{ uh_malicious|length }} URL malevoli</span>
+          {% elif uh.quota_exceeded %}
+            <span class="hint">quota superata</span>
+          {% else %}OK{% endif %}
+        {% else %}n/d{% endif %}
+      </td>
+      <td>
+        {% set sb = log.safebrowsing %}
+        {% if sb.available %}
+          {% if sb.matches %}
+            <span class="warning">{{ sb.matches|length }} minacce</span>
+          {% elif sb.quota_exceeded %}
+            <span class="hint">quota superata</span>
+          {% else %}OK{% endif %}
+        {% else %}n/d{% endif %}
+      </td>
+      <td>
+        {% set da = log.domain_age %}
+        {% if da.available %}
+          {% if da.is_recent %}
+            <span class="warning">{{ da.age_days }} giorni</span>
+          {% else %}{{ da.age_days }} giorni{% endif %}
+        {% else %}n/d{% endif %}
+      </td>
+      <td>{{ "inviata" if log.response_sent else "non inviata" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="12">Nessun log disponibile.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

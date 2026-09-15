@@ -1,0 +1,104 @@
+# SpamBox - file di configurazione di esempio.
+# Copiare come config/config.yaml e valorizzare i placeholder.
+# I valori sensibili (password, api key) possono anche essere passati
+# tramite variabili d'ambiente (vedi README) che hanno SEMPRE la precedenza
+# su quanto scritto qui. Non committare mai config.yaml con credenziali reali.
+
+imap:
+  host: "mail.bluehost-example.com"
+  port: 993
+  use_ssl: true
+  username: "spamreport@tuodominio.it"
+  password: "PLACEHOLDER_IMAP_PASSWORD"     # oppure env SPAMBOX_IMAP_PASSWORD
+  mailbox: "INBOX"
+  # Cartella dove il server salva automaticamente una copia delle email
+  # inviate via SMTP autenticato (viene svuotata a ogni ciclo, vedi README).
+  # Il nome/prefisso dipende dal server: verificarlo con un LIST IMAP
+  # (es. su Bluehost/Dovecot è tipicamente "INBOX.Sent").
+  sent_mailbox: "INBOX.Sent"
+  connect_timeout: 30
+  max_retries: 3
+  retry_backoff_seconds: 5
+
+smtp:
+  host: "mail.bluehost-example.com"
+  port: 587
+  use_starttls: true
+  use_ssl: false
+  username: "spamreport@tuodominio.it"
+  password: "PLACEHOLDER_SMTP_PASSWORD"     # oppure env SPAMBOX_SMTP_PASSWORD
+  from_address: "SpamBox <spamreport@tuodominio.it>"
+  timeout: 30
+
+virustotal:
+  enabled: true
+  api_key: "PLACEHOLDER_VT_API_KEY"         # oppure env SPAMBOX_VT_API_KEY
+  base_url: "https://www.virustotal.com/api/v3"
+  requests_per_minute: 4                    # limite tier gratuito VT
+  request_timeout_seconds: 15
+  max_urls_per_message: 10
+  max_attachments_per_message: 5
+
+rspamd:
+  enabled: true
+  base_url: "http://127.0.0.1:11334"        # controller worker rspamd (checkv2)
+  password: ""                              # password controller rspamd, se configurata
+  timeout_seconds: 15
+
+lookalike:
+  levenshtein_max_distance: 2
+  similarity_ratio_threshold: 0.82
+
+domain_age:
+  enabled: true
+  base_url: "https://rdap.org"              # bootstrap RDAP pubblico, nessuna API key
+  suspicious_if_younger_than_days: 30       # domini più giovani di così alzano il rischio
+  request_timeout_seconds: 10
+
+urlhaus:
+  enabled: true
+  base_url: "https://urlhaus-api.abuse.ch/v1"
+  # OBBLIGATORIA dal 2023: registrarsi gratuitamente su https://auth.abuse.ch/
+  # per ottenerla. Senza questa chiave le richieste falliscono con 401 (gestito
+  # senza bloccare l'analisi, ma il controllo URLhaus resta di fatto disattivato).
+  auth_key: "PLACEHOLDER_URLHAUS_AUTH_KEY"  # oppure env SPAMBOX_URLHAUS_AUTH_KEY
+  requests_per_minute: 60                   # limiti molto più permissivi di VirusTotal
+  max_urls_per_message: 10
+  request_timeout_seconds: 10
+
+safebrowsing:
+  enabled: true
+  base_url: "https://safebrowsing.googleapis.com/v4"
+  # Gratuita: abilitare "Safe Browsing API" su console.cloud.google.com e
+  # creare una API key. Quota gratuita di 10.000 richieste/giorno.
+  api_key: "PLACEHOLDER_SAFEBROWSING_API_KEY"  # oppure env SPAMBOX_SAFEBROWSING_API_KEY
+  max_urls_per_message: 20   # controllati in un'unica richiesta, non uno alla volta
+  request_timeout_seconds: 10
+
+scoring:
+  # pesi usati per comporre il punteggio di rischio finale (0-10); la somma
+  # non deve necessariamente fare 1.0, ma è la convenzione più leggibile
+  weight_rspamd: 0.18
+  weight_virustotal: 0.18
+  weight_lookalike: 0.11
+  weight_auth_failure: 0.05
+  weight_domain_age: 0.07
+  weight_urlhaus: 0.10
+  weight_safebrowsing: 0.12
+  weight_brand_impersonation: 0.09
+  weight_reply_to_mismatch: 0.09
+  threshold_sospetta: 4.0
+  threshold_pericolosa: 7.0
+
+storage:
+  sqlite_path: "data/spambox.db"
+  analysis_jsonl_path: "logs/analysis.jsonl"
+  app_log_path: "logs/app.log"
+
+web:
+  host: "127.0.0.1"
+  port: 8088
+  username: "admin"
+  # hash SHA-256 esadecimale della password (vedi README su come generarlo)
+  password_sha256: "PLACEHOLDER_PASSWORD_SHA256"   # oppure env SPAMBOX_WEB_PASSWORD_SHA256
+  session_secret: "PLACEHOLDER_RANDOM_SECRET"      # oppure env SPAMBOX_WEB_SESSION_SECRET

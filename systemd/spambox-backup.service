@@ -1,0 +1,15 @@
+[Unit]
+Description=SpamBox - backup DB + config verso cloud (rclone)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=spambox
+Group=spambox
+WorkingDirectory=/opt/spambox
+Environment="SPAMBOX_CONFIG=/opt/spambox/config/config.yaml"
+ExecStart=/opt/spambox/scripts/backup.sh
+# /tmp resta accessibile (necessario per lo staging), ma isolato dal resto del sistema
+PrivateTmp=true
+NoNewPrivileges=true

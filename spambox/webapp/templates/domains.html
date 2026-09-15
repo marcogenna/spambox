@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Domini legittimi protetti</h1>
+<p class="hint">Usati dal worker per rilevare domini "lookalike" (typosquatting) nei mittenti delle email inoltrate.</p>
+
+<form class="inline-form" method="post" action="/domains/add">
+  <input type="text" name="domain" placeholder="es. miodominio.com" required>
+  <input type="text" name="note" placeholder="nota (opzionale)">
+  <button type="submit">Aggiungi dominio</button>
+</form>
+
+<table class="data-table">
+  <thead>
+    <tr><th>Dominio</th><th>Nota</th><th>Aggiunto il</th><th>Azioni</th></tr>
+  </thead>
+  <tbody>
+    {% for d in domains %}
+    <tr>
+      <form method="post" action="/domains/{{ d['id'] }}/update">
+        <td><input type="text" name="domain" value="{{ d['domain'] }}" required></td>
+        <td><input type="text" name="note" value="{{ d['note'] or '' }}"></td>
+        <td>{{ d['created_at'] }}</td>
+        <td class="actions">
+          <button type="submit">Salva</button>
+          <button type="submit" formaction="/domains/{{ d['id'] }}/delete" class="danger"
+                  onclick="return confirm('Eliminare questo dominio?');">Elimina</button>
+        </td>
+      </form>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Nessun dominio protetto configurato.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

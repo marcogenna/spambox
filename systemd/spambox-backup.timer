@@ -1,0 +1,11 @@
+[Unit]
+Description=Esegue giornalmente il backup di SpamBox
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+Persistent=true
+Unit=spambox-backup.service
+
+[Install]
+WantedBy=timers.target

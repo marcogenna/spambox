@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+config/config.yaml
+config/config.yaml.bak.*
+config/spambox.env
+config/backup.env
+.DS_Store
+data/*.db
+data/*.db-*
+logs/*.log
+logs/*.jsonl
+!examples/log_example.jsonl
+.env

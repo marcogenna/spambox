@@ -1,0 +1,11 @@
+[Unit]
+Description=Esegue periodicamente il worker SpamBox
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Unit=spambox-worker.service
+
+[Install]
+WantedBy=timers.target

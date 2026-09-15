@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Domini autorizzati a inoltrare email</h1>
+<p class="hint">Solo le email inoltrate da un mittente il cui dominio è in questo elenco vengono analizzate; le altre vengono ignorate (nessuna analisi, nessuna risposta) per evitare abusi del servizio.</p>
+
+<form class="inline-form" method="post" action="/allowed-domains/add">
+  <input type="text" name="domain" placeholder="es. miaazienda.com" required>
+  <input type="text" name="note" placeholder="nota (opzionale)">
+  <button type="submit">Aggiungi dominio</button>
+</form>
+
+<table class="data-table">
+  <thead>
+    <tr><th>Dominio</th><th>Nota</th><th>Aggiunto il</th><th>Azioni</th></tr>
+  </thead>
+  <tbody>
+    {% for d in domains %}
+    <tr>
+      <form method="post" action="/allowed-domains/{{ d['id'] }}/update">
+        <td><input type="text" name="domain" value="{{ d['domain'] }}" required></td>
+        <td><input type="text" name="note" value="{{ d['note'] or '' }}"></td>
+        <td>{{ d['created_at'] }}</td>
+        <td class="actions">
+          <button type="submit">Salva</button>
+          <button type="submit" formaction="/allowed-domains/{{ d['id'] }}/delete" class="danger"
+                  onclick="return confirm('Rimuovere questo dominio autorizzato?');">Elimina</button>
+        </td>
+      </form>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Nessun dominio autorizzato configurato: tutte le email in arrivo verranno ignorate.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

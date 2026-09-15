@@ -1,0 +1,19 @@
+[Unit]
+Description=SpamBox worker - analisi email inoltrate (esecuzione singola)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=spambox
+Group=spambox
+WorkingDirectory=/opt/spambox
+Environment="SPAMBOX_CONFIG=/opt/spambox/config/config.yaml"
+EnvironmentFile=-/opt/spambox/config/spambox.env
+ExecStart=/opt/spambox/venv/bin/python -m spambox.worker.main
+# Hardening minimo (aggiustare in base alla distribuzione)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/spambox/data /opt/spambox/logs
+ProtectHome=true
