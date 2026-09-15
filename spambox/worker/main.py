@@ -13,6 +13,8 @@ import logging
 import sys
 
 from spambox import db
+from spambox.campaigns import detector as campaign_detector
+from spambox.campaigns import mailer as campaign_mailer
 from spambox.config import Config, load_config
 from spambox.logging_setup import append_analysis_jsonl, setup_app_logging
 from spambox.worker.analyzers import domain_age, rspamd, safebrowsing, urlhaus, virustotal
@@ -77,6 +79,51 @@ def process_one_message(
         db.insert_analysis_log(config.storage.sqlite_path, entry)
         append_analysis_jsonl(config.storage.analysis_jsonl_path, entry)
         return entry
+
+    # Se il messaggio contiene il link di tracciamento di una campagna di
+    # phishing simulato, il dipendente l'ha segnalata invece di cliccarla:
+    # e' il comportamento corretto. Si risponde con un rinforzo positivo e
+    # si evita di sprecare le chiamate a VT/URLhaus/Safe Browsing su un
+    # nostro link, oltre a non registrarlo come una minaccia reale.
+    if config.campaigns.enabled:
+        reported_target = campaign_detector.check_and_mark_reported(
+            config.storage.sqlite_path, parsed.urls
+        )
+        if reported_target is not None:
+            response_sent = False
+            try:
+                campaign_mailer.send_reinforcement_email(
+                    config.smtp, parsed.reply_to_address, parsed.subject
+                )
+                response_sent = True
+            except Exception:  # noqa: BLE001 - non deve interrompere il logging
+                logger.exception("Invio rinforzo positivo fallito per UID %s", uid)
+            entry = {
+                "message_uid": uid,
+                "from_address": parsed.from_address,
+                "reply_to_address": parsed.reply_to_address,
+                "subject": parsed.subject,
+                "risk_score": 0.0,
+                "verdict": "Simulazione superata",
+                "reasons": [
+                    f"Email di test della campagna '{reported_target['campaign_id']}' "
+                    "riconosciuta e segnalata correttamente, invece di cliccare il link"
+                ],
+                "lookalike": {"matches": []},
+                "virustotal": {"available": False},
+                "urlhaus": {"available": False},
+                "safebrowsing": {"available": False},
+                "rspamd": {"available": False},
+                "domain_age": {"available": False},
+                "brand_impersonation": {"matches": []},
+                "auth": parsed.auth_results,
+                "response_sent": response_sent,
+                "error": None,
+            }
+            db.insert_analysis_log(config.storage.sqlite_path, entry)
+            append_analysis_jsonl(config.storage.analysis_jsonl_path, entry)
+            logger.info("UID %s: segnalazione corretta di una campagna simulata", uid)
+            return entry
 
     rspamd_result = rspamd.check_message(raw_bytes, config.rspamd)
 

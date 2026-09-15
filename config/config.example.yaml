@@ -90,6 +90,18 @@ scoring:
   threshold_sospetta: 4.0
   threshold_pericolosa: 7.0
 
+campaigns:
+  # Campagne di phishing simulato verso i dipendenti (situation awareness).
+  # Disattivo di default: attivalo consapevolmente, dopo aver ottenuto il
+  # via libera di HR/legale (vedi README, sezione "Campagne di phishing
+  # simulato" per le implicazioni legali sul monitoraggio dei dipendenti).
+  enabled: false
+  # URL pubblico raggiungibile dai dipendenti (anche da remoto) su cui è
+  # esposta la rotta /sim/click/<token>: richiede un reverse proxy HTTPS,
+  # a differenza del resto dell'interfaccia che può restare solo su LAN.
+  # Senza questo valorizzato, il lancio di una campagna resta bloccato.
+  public_base_url: ""   # es. "https://spambox.miaazienda.com"
+
 storage:
   sqlite_path: "data/spambox.db"
   analysis_jsonl_path: "logs/analysis.jsonl"

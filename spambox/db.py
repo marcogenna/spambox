@@ -51,6 +51,34 @@ CREATE TABLE IF NOT EXISTS analysis_log (
 CREATE INDEX IF NOT EXISTS idx_analysis_log_processed_at ON analysis_log(processed_at);
 CREATE INDEX IF NOT EXISTS idx_analysis_log_verdict ON analysis_log(verdict);
 CREATE INDEX IF NOT EXISTS idx_analysis_log_from ON analysis_log(from_address);
+
+CREATE TABLE IF NOT EXISTS campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    body_html TEXT NOT NULL,
+    sender_display_name TEXT NOT NULL,
+    landing_page_html TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    launched_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS campaign_targets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id),
+    email TEXT NOT NULL,
+    team TEXT DEFAULT '',
+    token TEXT NOT NULL UNIQUE,
+    sent_at TEXT,
+    clicked_at TEXT,
+    reported_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(campaign_id, email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_targets_campaign ON campaign_targets(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_targets_token ON campaign_targets(token);
 """
 
 # Colonne aggiunte dopo la creazione iniziale della tabella: su un database
@@ -236,3 +264,144 @@ def query_logs(
     params.append(limit)
     with connect(sqlite_path) as conn:
         return conn.execute(query, params).fetchall()
+
+
+# ---------------------------------------------------------------------------
+# Campagne di phishing simulato (situation awareness)
+# ---------------------------------------------------------------------------
+
+def list_campaigns(sqlite_path: str) -> list[sqlite3.Row]:
+    with connect(sqlite_path) as conn:
+        return conn.execute(
+            "SELECT * FROM campaigns ORDER BY created_at DESC"
+        ).fetchall()
+
+
+def get_campaign(sqlite_path: str, campaign_id: int) -> Optional[sqlite3.Row]:
+    with connect(sqlite_path) as conn:
+        return conn.execute(
+            "SELECT * FROM campaigns WHERE id = ?", (campaign_id,)
+        ).fetchone()
+
+
+def create_campaign(
+    sqlite_path: str,
+    name: str,
+    subject: str,
+    body_html: str,
+    sender_display_name: str,
+    landing_page_html: str,
+) -> int:
+    with connect(sqlite_path) as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO campaigns (name, subject, body_html, sender_display_name, landing_page_html)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (name, subject, body_html, sender_display_name, landing_page_html),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def set_campaign_status(sqlite_path: str, campaign_id: int, status: str, launched: bool = False) -> None:
+    with connect(sqlite_path) as conn:
+        if launched:
+            conn.execute(
+                "UPDATE campaigns SET status = ?, launched_at = datetime('now') WHERE id = ?",
+                (status, campaign_id),
+            )
+        else:
+            conn.execute("UPDATE campaigns SET status = ? WHERE id = ?", (status, campaign_id))
+        conn.commit()
+
+
+def create_campaign_targets_bulk(
+    sqlite_path: str, campaign_id: int, targets: list[tuple[str, str, str]]
+) -> None:
+    """targets: lista di (email, team, token). Ignora silenziosamente i
+    duplicati (stesso indirizzo già presente nella stessa campagna)."""
+    with connect(sqlite_path) as conn:
+        conn.executemany(
+            """
+            INSERT OR IGNORE INTO campaign_targets (campaign_id, email, team, token)
+            VALUES (?, ?, ?, ?)
+            """,
+            [(campaign_id, email, team, token) for email, team, token in targets],
+        )
+        conn.commit()
+
+
+def list_campaign_targets(sqlite_path: str, campaign_id: int) -> list[sqlite3.Row]:
+    with connect(sqlite_path) as conn:
+        return conn.execute(
+            "SELECT * FROM campaign_targets WHERE campaign_id = ? ORDER BY email ASC",
+            (campaign_id,),
+        ).fetchall()
+
+
+def mark_target_sent(sqlite_path: str, target_id: int) -> None:
+    with connect(sqlite_path) as conn:
+        conn.execute(
+            "UPDATE campaign_targets SET sent_at = datetime('now') WHERE id = ?", (target_id,)
+        )
+        conn.commit()
+
+
+def mark_target_clicked(sqlite_path: str, token: str) -> Optional[sqlite3.Row]:
+    """Marca il click (solo la prima volta) e restituisce la riga del target
+    (con la campagna associata), o None se il token non esiste."""
+    with connect(sqlite_path) as conn:
+        target = conn.execute(
+            "SELECT * FROM campaign_targets WHERE token = ?", (token,)
+        ).fetchone()
+        if target is None:
+            return None
+        if not target["clicked_at"]:
+            conn.execute(
+                "UPDATE campaign_targets SET clicked_at = datetime('now') WHERE id = ?",
+                (target["id"],),
+            )
+            conn.commit()
+            target = conn.execute(
+                "SELECT * FROM campaign_targets WHERE id = ?", (target["id"],)
+            ).fetchone()
+        return target
+
+
+def find_target_by_token(sqlite_path: str, token: str) -> Optional[sqlite3.Row]:
+    with connect(sqlite_path) as conn:
+        return conn.execute(
+            "SELECT * FROM campaign_targets WHERE token = ?", (token,)
+        ).fetchone()
+
+
+def mark_target_reported(sqlite_path: str, token: str) -> None:
+    with connect(sqlite_path) as conn:
+        conn.execute(
+            "UPDATE campaign_targets SET reported_at = datetime('now') "
+            "WHERE token = ? AND reported_at IS NULL",
+            (token,),
+        )
+        conn.commit()
+
+
+def campaign_stats(sqlite_path: str, campaign_id: int) -> dict[str, int]:
+    with connect(sqlite_path) as conn:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN sent_at IS NOT NULL THEN 1 ELSE 0 END) AS sent,
+                SUM(CASE WHEN clicked_at IS NOT NULL THEN 1 ELSE 0 END) AS clicked,
+                SUM(CASE WHEN reported_at IS NOT NULL THEN 1 ELSE 0 END) AS reported
+            FROM campaign_targets WHERE campaign_id = ?
+            """,
+            (campaign_id,),
+        ).fetchone()
+        return {
+            "total": row["total"] or 0,
+            "sent": row["sent"] or 0,
+            "clicked": row["clicked"] or 0,
+            "reported": row["reported"] or 0,
+        }

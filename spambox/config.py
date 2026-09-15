@@ -133,6 +133,12 @@ class WebConfig:
 
 
 @dataclass
+class CampaignsConfig:
+    enabled: bool
+    public_base_url: str
+
+
+@dataclass
 class Config:
     imap: ImapConfig
     smtp: SmtpConfig
@@ -142,6 +148,7 @@ class Config:
     domain_age: DomainAgeConfig
     urlhaus: UrlhausConfig
     safebrowsing: SafeBrowsingConfig
+    campaigns: CampaignsConfig
     scoring: ScoringConfig
     storage: StorageConfig
     web: WebConfig
@@ -231,6 +238,11 @@ def load_config(path: str | Path | None = None) -> Config:
         max_urls_per_message=int(safebrowsing_raw.get("max_urls_per_message", 20)),
         request_timeout_seconds=int(safebrowsing_raw.get("request_timeout_seconds", 10)),
     )
+    campaigns_raw = raw.get("campaigns", {})
+    campaigns = CampaignsConfig(
+        enabled=bool(campaigns_raw.get("enabled", False)),
+        public_base_url=campaigns_raw.get("public_base_url", ""),
+    )
     scoring = ScoringConfig(
         weight_rspamd=float(scoring_raw["weight_rspamd"]),
         weight_virustotal=float(scoring_raw["weight_virustotal"]),
@@ -270,6 +282,7 @@ def load_config(path: str | Path | None = None) -> Config:
         domain_age=domain_age,
         urlhaus=urlhaus,
         safebrowsing=safebrowsing,
+        campaigns=campaigns,
         scoring=scoring,
         storage=storage,
         web=web,

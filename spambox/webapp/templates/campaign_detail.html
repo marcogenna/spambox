@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ campaign.name }}</h1>
+<p class="hint">Stato: <span class="badge">{{ campaign.status }}</span>
+  {% if campaign.launched_at %} — lanciata il {{ campaign.launched_at }}{% endif %}
+</p>
+
+<div class="stats-row">
+  <div class="stat-tile"><strong>{{ stats.total }}</strong><span>destinatari</span></div>
+  <div class="stat-tile"><strong>{{ stats.sent }}</strong><span>inviate</span></div>
+  <div class="stat-tile warning-tile"><strong>{{ stats.clicked }}</strong><span>cliccate</span></div>
+  <div class="stat-tile safe-tile"><strong>{{ stats.reported }}</strong><span>segnalate</span></div>
+</div>
+
+{% if campaign.status == "draft" %}
+  {% if campaigns_enabled and public_base_url %}
+  <form method="post" action="/campaigns/{{ campaign.id }}/launch">
+    <button type="submit" onclick="return confirm('Inviare la campagna a tutti i {{ stats.total }} destinatari?');">
+      Lancia campagna
+    </button>
+  </form>
+  {% else %}
+  <p class="warning">
+    Configura <code>campaigns.enabled: true</code> e <code>campaigns.public_base_url</code>
+    in <code>config.yaml</code> per poter lanciare questa campagna.
+  </p>
+  {% endif %}
+{% endif %}
+
+<table class="data-table">
+  <thead>
+    <tr><th>Email</th><th>Team</th><th>Inviata</th><th>Cliccata</th><th>Segnalata</th></tr>
+  </thead>
+  <tbody>
+    {% for t in targets %}
+    <tr class="{{ 'verdict-row verdict-altamente-pericolosa' if t.clicked_at else ('verdict-row verdict-sicura' if t.reported_at else '') }}">
+      <td>{{ t.email }}</td>
+      <td>{{ t.team or "—" }}</td>
+      <td>{{ t.sent_at or "—" }}</td>
+      <td>{{ t.clicked_at or "—" }}</td>
+      <td>{{ t.reported_at or "—" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Nessun destinatario in questa campagna.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

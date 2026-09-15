@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Nuova campagna di phishing simulato</h1>
+
+<form method="post" action="/campaigns/add" class="campaign-form">
+  <label>Nome campagna (solo interno, i dipendenti non lo vedono)
+    <input type="text" name="name" placeholder="es. Test consegna pacco - Q1 2026" required>
+  </label>
+
+  <label>Nome mittente visualizzato
+    <input type="text" name="sender_display_name" placeholder="es. Corriere Espresso" required>
+  </label>
+
+  <label>Oggetto dell'email
+    <input type="text" name="subject" placeholder="es. Il tuo pacco è in consegna" required>
+  </label>
+
+  <label>Corpo dell'email (HTML). Usa <code>{% raw %}{{link}}{% endraw %}</code> nel punto dove
+    deve comparire il link di tracciamento univoco.
+    <textarea name="body_html" rows="10" required>&lt;p&gt;Ciao,&lt;/p&gt;
+&lt;p&gt;Il tuo pacco è in consegna. Clicca qui per tracciarlo:&lt;/p&gt;
+&lt;p&gt;&lt;a href="{% raw %}{{link}}{% endraw %}"&gt;Traccia il pacco&lt;/a&gt;&lt;/p&gt;</textarea>
+  </label>
+
+  <label>Pagina mostrata dopo il click (HTML) — spiega che era un test
+    <textarea name="landing_page_html" rows="8" required>&lt;html&gt;&lt;body style="font-family: sans-serif; max-width: 600px; margin: 60px auto;"&gt;
+&lt;h1&gt;⚠️ Questo era un test!&lt;/h1&gt;
+&lt;p&gt;Hai appena cliccato su un link in un'email di phishing simulata, organizzata dalla tua azienda per allenare il riconoscimento delle truffe via email.&lt;/p&gt;
+&lt;p&gt;Nessun dato è stato raccolto. La prossima volta, prima di cliccare un link del genere, inoltra l'email a spambox per un controllo.&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;</textarea>
+  </label>
+
+  <label>Elenco dipendenti (uno per riga: <code>email</code> oppure <code>email,team</code>)
+    <textarea name="targets_text" rows="8" placeholder="mario.rossi@miaazienda.com,vendite&#10;laura.bianchi@miaazienda.com,amministrazione"></textarea>
+  </label>
+
+  <button type="submit">Crea campagna (bozza)</button>
+</form>
+{% endblock %}

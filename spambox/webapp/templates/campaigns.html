@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Campagne di phishing simulato</h1>
+<p class="hint">
+  Email di test inviate ai dipendenti per allenare il riconoscimento del
+  phishing. Chi clicca il link viene mostrato come "cliccato"; chi inoltra
+  invece l'email a questa stessa mailbox (comportamento corretto) viene
+  registrato come "segnalato".
+</p>
+
+{% if not campaigns_enabled or not public_base_url %}
+<p class="warning">
+  Le campagne non sono abilitate o manca <code>campaigns.public_base_url</code>
+  in <code>config.yaml</code>: puoi creare bozze ma non potrai lanciarle
+  finché non configuri entrambe.
+</p>
+{% endif %}
+
+<p><a href="/campaigns/new"><button type="button">Nuova campagna</button></a></p>
+
+<table class="data-table">
+  <thead>
+    <tr><th>Nome</th><th>Stato</th><th>Creata il</th><th>Inviate</th><th>Cliccate</th><th>Segnalate</th></tr>
+  </thead>
+  <tbody>
+    {% for c in campaigns %}
+    <tr>
+      <td><a href="/campaigns/{{ c.id }}">{{ c.name }}</a></td>
+      <td><span class="badge">{{ c.status }}</span></td>
+      <td>{{ c.created_at }}</td>
+      <td>{{ c.stats.sent }} / {{ c.stats.total }}</td>
+      <td>{{ c.stats.clicked }}</td>
+      <td>{{ c.stats.reported }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">Nessuna campagna creata finora.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

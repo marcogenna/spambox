@@ -38,6 +38,7 @@ casella e risponde, affiancato da una interfaccia di amministrazione.
 - [Diagnostica](#diagnostica)
 - [Deployment su Raspberry Pi / DietPi](#deployment-su-raspberry-pi--dietpi)
 - [Backup](#backup)
+- [Campagne di phishing simulato (situation awareness)](#campagne-di-phishing-simulato-situation-awareness)
 - [Sicurezza](#sicurezza)
 - [Estendere il sistema](#estendere-il-sistema)
 - [Contribuire](#contribuire)
@@ -483,6 +484,67 @@ chiaro sullo storage cloud di destinazione: usare un remote rclone con
 crittografia (`rclone config` -> tipo `crypt`) se il provider cloud non è
 considerato pienamente fidato, o quantomeno assicurarsi che il bucket/cartella
 di destinazione sia privato.
+
+## Campagne di phishing simulato (situation awareness)
+
+Sezione "Campagne test" dell'interfaccia web: permette di inviare email di
+phishing finte a una lista di dipendenti per allenare il riconoscimento
+delle truffe reali, e misurare chi ci casca (clicca il link) rispetto a chi
+la segnala correttamente (inoltrandola alla stessa mailbox di SpamBox,
+esattamente come farebbe con un'email reale sospetta).
+
+**⚠️ Implicazioni legali da verificare prima dell'uso reale**: monitorare il
+comportamento individuale dei dipendenti (chi clicca, chi no) può rientrare,
+in Italia, nei "controlli a distanza" regolati dall'art. 4 dello Statuto dei
+Lavoratori (richiede accordo sindacale o autorizzazione dell'Ispettorato del
+Lavoro), oltre alle normali implicazioni GDPR sul trattamento dati dei
+dipendenti. **Ottenere il via libera di HR/legale prima di lanciare una
+campagna reale.** La funzionalità resta disattiva di default
+(`campaigns.enabled: false`) proprio per questo.
+
+### Come funziona
+
+1. Si crea una campagna dall'interfaccia web: oggetto, corpo HTML (con il
+   placeholder `{{link}}` dove va il link di tracciamento), nome mittente
+   visualizzato, pagina educativa mostrata dopo il click, ed elenco
+   destinatari (`email` o `email,team` una riga per volta).
+2. Al lancio, ogni dipendente riceve un'email con un link **univoco**.
+3. Se **clicca**: una rotta pubblica (`/sim/click/<token>`, non richiede
+   autenticazione — deve essere raggiungibile dal dipendente ovunque si
+   trovi) registra il click e mostra la pagina educativa configurata.
+4. Se invece **inoltra l'email a SpamBox** (il comportamento corretto): il
+   worker riconosce il link nel testo del forward
+   (`spambox/campaigns/detector.py`), lo marca come "segnalato
+   correttamente", e risponde con un messaggio di rinforzo positivo —
+   **senza** sprecare chiamate VirusTotal/URLhaus/Safe Browsing su un link
+   che è nostro.
+5. La dashboard per campagna mostra inviate/cliccate/segnalate, oltre al
+   dettaglio per singolo dipendente — dati grezzi da cui costruire
+   statistiche e indirizzare corsi di formazione mirati.
+
+### Configurazione
+
+```yaml
+campaigns:
+  enabled: true
+  public_base_url: "https://spambox.miaazienda.com"
+```
+
+**`public_base_url` è la parte delicata del deployment**: a differenza del
+resto dell'interfaccia (pensata per restare su `127.0.0.1`/LAN, dietro
+tunnel SSH o VPN), la rotta `/sim/click/` deve essere raggiungibile dai
+dipendenti da qualunque rete si trovino — serve quindi un reverse proxy
+HTTPS pubblico (nginx/Caddy) davanti alla webapp, almeno per quella rotta.
+Senza `public_base_url` configurato, il pulsante "Lancia campagna" resta
+disabilitato.
+
+### Cosa NON fa (fuori scope, deliberatamente)
+
+- **Nessuna raccolta di credenziali finte**: solo tracciamento del click,
+  niente form di login simulato — scelta consapevole per limitare la
+  delicatezza etica/legale della funzionalità.
+- Nessun tracciamento "apertura email" via pixel invisibile (segnale
+  inaffidabile, molti client bloccano le immagini remote di default).
 
 ## Sicurezza
 
