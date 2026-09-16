@@ -18,7 +18,11 @@ from spambox.campaigns import mailer as campaign_mailer
 from spambox.config import Config, load_config
 from spambox.logging_setup import append_analysis_jsonl, setup_app_logging
 from spambox.worker.analyzers import domain_age, rspamd, safebrowsing, urlhaus, virustotal
-from spambox.worker.analyzers.brand_impersonation import find_brand_impersonation
+from spambox.worker.analyzers.brand_impersonation import (
+    find_brand_impersonation,
+    find_own_domain_impersonation,
+)
+from spambox.worker.analyzers.html_attachment import find_html_attachment_phishing
 from spambox.worker.analyzers.lookalike import find_lookalike_matches
 from spambox.worker.imap_client import ImapError, ImapSession
 from spambox.worker.mime_parser import parse_message
@@ -171,7 +175,14 @@ def process_one_message(
     # (nome visualizzato, dominio) annidati nel forward, non filtrati per
     # dominio autorizzato dato che qui interessa il nome dichiarato, non solo
     # se il dominio è esterno.
-    brand_impersonation_matches = find_brand_impersonation(parsed.quoted_senders)
+    # Oltre ai brand terzi noti, controlla anche l'impersonificazione dei
+    # domini protetti dell'azienda stessa (es. finte notifiche IT interne):
+    # non può stare in KNOWN_BRANDS perché non è un brand pubblico.
+    brand_impersonation_matches = find_brand_impersonation(
+        parsed.quoted_senders
+    ) + find_own_domain_impersonation(parsed.quoted_senders, protected_domains)
+
+    html_attachment_phishing_matches = find_html_attachment_phishing(parsed.attachments)
 
     verdict = compute_verdict(
         rspamd_result,
@@ -185,6 +196,7 @@ def process_one_message(
         brand_impersonation_matches=brand_impersonation_matches,
         quoted_from_domains=parsed.quoted_from_domains,
         quoted_reply_to_domains=parsed.quoted_reply_to_domains,
+        html_attachment_phishing_matches=html_attachment_phishing_matches,
     )
 
     response_sent = False

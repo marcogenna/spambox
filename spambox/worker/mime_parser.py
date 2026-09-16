@@ -67,6 +67,16 @@ def _unwrap_redirect_url(url: str) -> Optional[str]:
     return None
 
 
+# Tipi di allegato il cui contenuto testuale viene conservato per l'analisi
+# statica (pagine di phishing HTML che rubano credenziali, es. false pagine
+# di login VPN/webmail allegate invece che linkate): un hash SHA256 da solo
+# non le rileva perché ogni campagna genera un file "su misura" mai visto
+# prima da VirusTotal. Limite di dimensione per non tenere in memoria
+# allegati binari di grandi dimensioni per errore di riconoscimento MIME.
+_INSPECTABLE_ATTACHMENT_TYPES = {"text/html", "application/xhtml+xml"}
+_MAX_INSPECTABLE_ATTACHMENT_BYTES = 2_000_000
+
+
 @dataclass
 class Attachment:
     filename: str
@@ -74,6 +84,7 @@ class Attachment:
     size: int
     sha256: str
     is_inline: bool = False
+    text_content: str = ""
 
 
 @dataclass
@@ -227,6 +238,17 @@ def parse_message(raw_bytes: bytes, message: Message) -> ParsedMessage:
             if "attachment" in disposition or part.get_filename():
                 payload = part.get_payload(decode=True) or b""
                 filename = part.get_filename() or "allegato_senza_nome"
+                text_content = ""
+                # Molti kit di phishing dichiarano l'allegato HTML come
+                # "application/octet-stream" per non farlo aprire subito nel
+                # browser: il Content-Type MIME da solo non basta, va
+                # controllata anche l'estensione del nome file.
+                looks_like_html = content_type in _INSPECTABLE_ATTACHMENT_TYPES or filename.lower().endswith(
+                    (".htm", ".html", ".xhtml")
+                )
+                if looks_like_html and len(payload) <= _MAX_INSPECTABLE_ATTACHMENT_BYTES:
+                    charset = part.get_content_charset() or "utf-8"
+                    text_content = payload.decode(charset, errors="replace")
                 attachments.append(
                     Attachment(
                         filename=filename,
@@ -234,6 +256,7 @@ def parse_message(raw_bytes: bytes, message: Message) -> ParsedMessage:
                         size=len(payload),
                         sha256=hashlib.sha256(payload).hexdigest(),
                         is_inline="inline" in disposition.lower(),
+                        text_content=text_content,
                     )
                 )
                 continue

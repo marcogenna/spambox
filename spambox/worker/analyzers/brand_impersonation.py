@@ -95,3 +95,40 @@ def find_brand_impersonation(
                 )
 
     return matches
+
+
+def find_own_domain_impersonation(
+    quoted_senders: list[tuple[str, str]],
+    protected_domains: list[str],
+) -> list[BrandImpersonationMatch]:
+    """Variante di `find_brand_impersonation` per il caso in cui non venga
+    spacciato un brand terzo noto, ma il proprio dominio aziendale protetto:
+    es. 'From: miaazienda.it Team di supporto <...@dominio-estraneo.com>'.
+    Tecnica tipica delle finte notifiche "aggiornamento sicurezza casella
+    di posta"/"verifica account" rivolte ai dipendenti di una specifica
+    azienda, che per definizione non può comparire nella lista curata di
+    brand noti (KNOWN_BRANDS) perché non è un brand pubblico."""
+    matches: list[BrandImpersonationMatch] = []
+    seen: set[tuple[str, str]] = set()
+
+    for display_name, domain in quoted_senders:
+        if not display_name or not domain:
+            continue
+        name_lower = display_name.lower()
+        for protected in protected_domains:
+            protected_lower = protected.lower()
+            label = protected_lower.split(".")[0]
+            if not (protected_lower in name_lower or (label and label in name_lower)):
+                continue
+            is_legit = domain == protected_lower or domain.endswith("." + protected_lower)
+            if not is_legit and (protected_lower, domain) not in seen:
+                seen.add((protected_lower, domain))
+                matches.append(
+                    BrandImpersonationMatch(
+                        claimed_brand=protected_lower,
+                        sender_domain=domain,
+                        legitimate_domains=[protected_lower],
+                    )
+                )
+
+    return matches

@@ -128,14 +128,24 @@ def _lookalike_component(matches: list[LookalikeMatch]) -> tuple[float, list[str
 def _brand_impersonation_component(matches: list[BrandImpersonationMatch]) -> tuple[float, list[str]]:
     if not matches:
         return 0.0, []
-    reasons = [
-        (
-            f"Il messaggio si presenta come '{m.claimed_brand.upper()}' ma il mittente "
-            f"reale ('{m.sender_domain}') non ha nulla a che vedere con quell'azienda: "
-            "tecnica tipica delle truffe che imitano corrieri, banche o servizi noti"
-        )
-        for m in matches
-    ]
+    reasons = []
+    for m in matches:
+        # Un brand impersonato è un nome ("dhl"), un dominio protetto
+        # dell'azienda impersonata invece contiene già un punto: la frase
+        # va adattata perché "si presenta come 'TCRTECORA.COM'" suonerebbe
+        # innaturale rispetto a "si presenta come 'DHL'".
+        if "." in m.claimed_brand:
+            reasons.append(
+                f"Il messaggio si presenta come proveniente da '{m.claimed_brand}' ma il "
+                f"mittente reale ('{m.sender_domain}') non ha nulla a che vedere con quel "
+                "dominio: tecnica tipica delle finte comunicazioni interne (es. falsi avvisi IT)"
+            )
+        else:
+            reasons.append(
+                f"Il messaggio si presenta come '{m.claimed_brand.upper()}' ma il mittente "
+                f"reale ('{m.sender_domain}') non ha nulla a che vedere con quell'azienda: "
+                "tecnica tipica delle truffe che imitano corrieri, banche o servizi noti"
+            )
     return 10.0, reasons
 
 
@@ -179,6 +189,12 @@ def _domain_age_component(domain_age_result: dict[str, Any]) -> tuple[float, lis
         "è un segnale tipico delle campagne di phishing, che spesso usano domini appena creati"
     )
     return 10.0, [reason]
+
+
+def _html_attachment_phishing_component(matches: list) -> tuple[float, list[str]]:
+    if not matches:
+        return 0.0, []
+    return 10.0, [m.reason for m in matches]
 
 
 def _urlhaus_component(urlhaus_result: dict[str, Any]) -> tuple[float, list[str], bool]:
@@ -262,6 +278,7 @@ def compute_verdict(
     brand_impersonation_matches: list[BrandImpersonationMatch] | None = None,
     quoted_from_domains: list[str] | None = None,
     quoted_reply_to_domains: list[str] | None = None,
+    html_attachment_phishing_matches: list | None = None,
 ) -> Verdict:
     rspamd_score, rspamd_reasons = _rspamd_component(rspamd_result)
     vt_score, vt_reasons, vt_has_malicious = _virustotal_component(virustotal_result)
@@ -275,6 +292,9 @@ def compute_verdict(
     brand_score, brand_reasons = _brand_impersonation_component(brand_impersonation_matches or [])
     reply_to_score, reply_to_reasons, reply_to_mismatch = _reply_to_mismatch_component(
         quoted_from_domains or [], quoted_reply_to_domains or []
+    )
+    html_attachment_score, html_attachment_reasons = _html_attachment_phishing_component(
+        html_attachment_phishing_matches or []
     )
 
     total = (
@@ -302,7 +322,12 @@ def compute_verdict(
     #    recente, rspamd che classifica come reject): forti ma non una prova
     #    diretta presa singolarmente, quindi floor a "Sospetta"; se se ne
     #    accumulano almeno due si sale comunque a "pericolosa".
-    confirmed_malicious = [vt_has_malicious, urlhaus_has_malicious, safebrowsing_has_malicious]
+    confirmed_malicious = [
+        vt_has_malicious,
+        urlhaus_has_malicious,
+        safebrowsing_has_malicious,
+        bool(html_attachment_phishing_matches),
+    ]
     heuristic_signals = [
         bool(lookalike_matches),
         bool(brand_impersonation_matches),
@@ -328,8 +353,9 @@ def compute_verdict(
         label = "Sicura"
 
     combined = (
-        brand_reasons + reply_to_reasons + lookalike_reasons + vt_reasons + urlhaus_reasons
-        + safebrowsing_reasons + domain_age_reasons + auth_reasons + rspamd_reasons
+        html_attachment_reasons + brand_reasons + reply_to_reasons + lookalike_reasons
+        + vt_reasons + urlhaus_reasons + safebrowsing_reasons + domain_age_reasons
+        + auth_reasons + rspamd_reasons
     )
     reasons = list(dict.fromkeys(combined))  # dedup preservando l'ordine
     if not reasons:
