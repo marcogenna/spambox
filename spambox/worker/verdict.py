@@ -191,6 +191,18 @@ def _domain_age_component(domain_age_result: dict[str, Any]) -> tuple[float, lis
     return 10.0, [reason]
 
 
+def _phishing_language_component(matches: list) -> tuple[float, list[str]]:
+    if not matches:
+        return 0.0, []
+    seen_categories = set()
+    reasons = []
+    for m in matches:
+        if m.category not in seen_categories:
+            seen_categories.add(m.category)
+            reasons.append(m.reason)
+    return 10.0, reasons
+
+
 def _html_attachment_phishing_component(matches: list) -> tuple[float, list[str]]:
     if not matches:
         return 0.0, []
@@ -279,6 +291,7 @@ def compute_verdict(
     quoted_from_domains: list[str] | None = None,
     quoted_reply_to_domains: list[str] | None = None,
     html_attachment_phishing_matches: list | None = None,
+    phishing_language_matches: list | None = None,
 ) -> Verdict:
     rspamd_score, rspamd_reasons = _rspamd_component(rspamd_result)
     vt_score, vt_reasons, vt_has_malicious = _virustotal_component(virustotal_result)
@@ -295,6 +308,9 @@ def compute_verdict(
     )
     html_attachment_score, html_attachment_reasons = _html_attachment_phishing_component(
         html_attachment_phishing_matches or []
+    )
+    phishing_language_score, phishing_language_reasons = _phishing_language_component(
+        phishing_language_matches or []
     )
 
     total = (
@@ -341,6 +357,7 @@ def compute_verdict(
         reply_to_mismatch,
         bool((domain_age_result or {}).get("is_recent")),
         rspamd_result.get("action") == "reject",
+        bool(phishing_language_matches),
     ]
 
     if any(confirmed_malicious):
@@ -360,9 +377,9 @@ def compute_verdict(
         label = "Sicura"
 
     combined = (
-        html_attachment_reasons + brand_reasons + reply_to_reasons + lookalike_reasons
-        + vt_reasons + urlhaus_reasons + safebrowsing_reasons + domain_age_reasons
-        + auth_reasons + rspamd_reasons
+        html_attachment_reasons + brand_reasons + phishing_language_reasons + reply_to_reasons
+        + lookalike_reasons + vt_reasons + urlhaus_reasons + safebrowsing_reasons
+        + domain_age_reasons + auth_reasons + rspamd_reasons
     )
     reasons = list(dict.fromkeys(combined))  # dedup preservando l'ordine
     if not reasons:
