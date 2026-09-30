@@ -312,25 +312,32 @@ def compute_verdict(
     # Due livelli di floor, per non annacquare rilevazioni certe nella media
     # pesata tra 9 componenti:
     #
-    # 1) Rilevazioni CONFERMATE da un servizio di threat-intel dedicato
-    #    (VirusTotal, URLhaus, Google Safe Browsing = più motori/vendor che
-    #    hanno già classificato quell'URL/hash come malevolo): una sola di
-    #    queste basta da sola per "Altamente pericolosa", non serve conferma
-    #    incrociata.
-    # 2) Indizi EURISTICI (lookalike, impersonificazione di brand, Reply-To
-    #    dirottato su un dominio diverso dal From, dominio registrato di
-    #    recente, rspamd che classifica come reject): forti ma non una prova
-    #    diretta presa singolarmente, quindi floor a "Sospetta"; se se ne
-    #    accumulano almeno due si sale comunque a "pericolosa".
+    # 1) Rilevazioni CONFERMATE, senza un caso d'uso legittimo plausibile:
+    #    - VirusTotal/URLhaus/Google Safe Browsing: più motori/vendor hanno
+    #      già classificato quell'URL/hash come malevolo;
+    #    - allegato HTML con campo password + esfiltrazione hardcoded;
+    #    - impersonificazione di un brand/dominio specifico: il nome
+    #      visualizzato dichiara esplicitamente un'azienda nota (es. "Klarna")
+    #      o il proprio dominio protetto, ma il mittente reale non ha nulla a
+    #      che vedere con essa — a differenza del lookalike (somiglianza
+    #      testuale, può essere casuale) non esiste uno scenario legittimo
+    #      plausibile per questa combinazione, quindi basta da sola per
+    #      "Altamente pericolosa", non serve conferma incrociata.
+    # 2) Indizi EURISTICI (lookalike, Reply-To dirottato su un dominio diverso
+    #    dal From, dominio registrato di recente, rspamd che classifica come
+    #    reject): forti ma con scenari legittimi plausibili (typosquat
+    #    casuale, PEC di terze parti, azienda neonata, falsi positivi rspamd),
+    #    quindi floor a "Sospetta" da soli; se se ne accumulano almeno due si
+    #    sale comunque a "pericolosa".
     confirmed_malicious = [
         vt_has_malicious,
         urlhaus_has_malicious,
         safebrowsing_has_malicious,
         bool(html_attachment_phishing_matches),
+        bool(brand_impersonation_matches),
     ]
     heuristic_signals = [
         bool(lookalike_matches),
-        bool(brand_impersonation_matches),
         reply_to_mismatch,
         bool((domain_age_result or {}).get("is_recent")),
         rspamd_result.get("action") == "reject",
