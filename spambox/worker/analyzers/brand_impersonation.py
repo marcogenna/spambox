@@ -30,6 +30,12 @@ KNOWN_BRANDS: dict[str, list[str]] = {
     "gls": ["gls-italy.com", "gls-group.com"],
     "sda": ["sda.it"],
     "paypal": ["paypal.com"],
+    # Servizi di pagamento "buy now pay later"/rateizzazione, bersaglio
+    # comune di truffe "rimborso in elaborazione"/"pagamento non riuscito"
+    "klarna": ["klarna.com", "klarna.se"],
+    "scalapay": ["scalapay.com"],
+    "satispay": ["satispay.com"],
+    "postepay": ["poste.it", "postepay.it"],
     "amazon": ["amazon.it", "amazon.com", "amazon.de", "amazon.fr"],
     "netflix": ["netflix.com"],
     "microsoft": ["microsoft.com", "outlook.com", "live.com"],
