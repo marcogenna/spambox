@@ -37,6 +37,7 @@ RSPAMD_SYMBOL_TRANSLATIONS: dict[str, str] = {
     "R_SPF_FAIL": "Il server che ha inviato il messaggio non è autorizzato per quel dominio (SPF)",
     "R_DKIM_REJECT": "La firma digitale di autenticità del messaggio non è valida (DKIM)",
     "MIME_SUSPECT_EXE": "Il messaggio contiene un allegato potenzialmente pericoloso",
+    "FAKE_REPLY": "L'oggetto finge di essere la risposta a una conversazione mai avvenuta, tecnica comune nello spam/phishing per sembrare più legittimo",
 }
 
 
@@ -356,7 +357,13 @@ def compute_verdict(
         bool(lookalike_matches),
         reply_to_mismatch,
         bool((domain_age_result or {}).get("is_recent")),
-        rspamd_result.get("action") == "reject",
+        # rspamd classifica come spam ("Spam: true") con qualunque azione
+        # diversa da "no action"/"greylist", non solo "reject" (che rspamd
+        # riserva a punteggi molto più alti): limitare il segnale al solo
+        # reject significava ignorare la classificazione statistica/Bayesiana
+        # di rspamd nella stragrande maggioranza dei casi (es. mail
+        # marketing/bulk con mittente non verificato, DMARC in quarantena).
+        rspamd_result.get("action") in ("add header", "rewrite subject", "soft reject", "reject"),
         bool(phishing_language_matches),
     ]
 
