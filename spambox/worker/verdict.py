@@ -353,25 +353,39 @@ def compute_verdict(
         bool(html_attachment_phishing_matches),
         bool(brand_impersonation_matches),
     ]
+    # rspamd classifica come spam ("Spam: true") con qualunque azione diversa
+    # da "no action"/"greylist", non solo "reject" (che rspamd riserva a
+    # punteggi molto più alti): limitare il segnale al solo reject
+    # significava ignorare la classificazione statistica/Bayesiana di rspamd
+    # nella stragrande maggioranza dei casi (es. mail marketing/bulk con
+    # mittente non verificato, DMARC in quarantena). Il peso di questo
+    # indizio non è però fisso: un punteggio rspamd già vicino alla SUA
+    # soglia di reject (configurata su rspamd stesso, qui approssimata con
+    # l'80% di required_score) pesa quanto DUE indizi euristici, non uno solo
+    # — altrimenti un'email quasi-reject e una appena sopra la soglia "add
+    # header" contavano identico.
+    rspamd_action_flagged = rspamd_result.get("action") in (
+        "add header", "rewrite subject", "soft reject", "reject"
+    )
+    rspamd_weight = 0
+    if rspamd_action_flagged:
+        rspamd_required = rspamd_result.get("required_score") or 15.0
+        rspamd_ratio = (rspamd_result.get("score") or 0.0) / rspamd_required if rspamd_required else 0.0
+        rspamd_weight = 2 if rspamd_ratio >= 0.8 else 1
+
     heuristic_signals = [
         bool(lookalike_matches),
         reply_to_mismatch,
         bool((domain_age_result or {}).get("is_recent")),
-        # rspamd classifica come spam ("Spam: true") con qualunque azione
-        # diversa da "no action"/"greylist", non solo "reject" (che rspamd
-        # riserva a punteggi molto più alti): limitare il segnale al solo
-        # reject significava ignorare la classificazione statistica/Bayesiana
-        # di rspamd nella stragrande maggioranza dei casi (es. mail
-        # marketing/bulk con mittente non verificato, DMARC in quarantena).
-        rspamd_result.get("action") in ("add header", "rewrite subject", "soft reject", "reject"),
         bool(phishing_language_matches),
     ]
+    heuristic_count = sum(heuristic_signals) + rspamd_weight
 
     if any(confirmed_malicious):
         total = max(total, config.threshold_pericolosa)
-    elif any(heuristic_signals):
+    elif heuristic_count >= 1:
         total = max(total, config.threshold_sospetta)
-        if sum(heuristic_signals) >= 2:
+        if heuristic_count >= 2:
             total = max(total, config.threshold_pericolosa)
 
     total = round(min(total, 10.0), 2)
