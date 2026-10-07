@@ -30,6 +30,19 @@ _EXFIL_ENDPOINT_RE = re.compile(
 )
 
 
+# Redirect automatico verso un sito esterno (meta refresh o JavaScript):
+# un allegato HTML che appena aperto rimanda altrove è un "redirector", usato
+# per nascondere il link di phishing dai controlli sul corpo del messaggio.
+_META_REFRESH_RE = re.compile(
+    r"""<meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*url\s*=\s*["']?(https?://[^"'>\s]+)""",
+    re.IGNORECASE,
+)
+_JS_REDIRECT_RE = re.compile(
+    r"""location(?:\.href\s*=|\.replace\s*\(|\.assign\s*\()\s*["'](https?://[^"']+)""",
+    re.IGNORECASE,
+)
+
+
 @dataclass
 class HtmlAttachmentPhishingMatch:
     filename: str
@@ -43,6 +56,20 @@ def find_html_attachment_phishing(
     for attachment in attachments:
         content = attachment.text_content
         if not content:
+            continue
+
+        redirect = _META_REFRESH_RE.search(content) or _JS_REDIRECT_RE.search(content)
+        if redirect:
+            matches.append(
+                HtmlAttachmentPhishingMatch(
+                    filename=attachment.filename,
+                    reason=(
+                        f"L'allegato '{attachment.filename}' è una pagina HTML che, appena aperta, "
+                        "rimanda automaticamente a un sito esterno: tecnica tipica del phishing "
+                        "per nascondere il vero indirizzo dai controlli sul testo dell'email"
+                    ),
+                )
+            )
             continue
 
         has_password_field = bool(_PASSWORD_FIELD_RE.search(content))

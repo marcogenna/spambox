@@ -293,6 +293,7 @@ def compute_verdict(
     quoted_reply_to_domains: list[str] | None = None,
     html_attachment_phishing_matches: list | None = None,
     phishing_language_matches: list | None = None,
+    sender_identity_matches: list | None = None,
 ) -> Verdict:
     rspamd_score, rspamd_reasons = _rspamd_component(rspamd_result)
     vt_score, vt_reasons, vt_has_malicious = _virustotal_component(virustotal_result)
@@ -378,6 +379,7 @@ def compute_verdict(
         reply_to_mismatch,
         bool((domain_age_result or {}).get("is_recent")),
         bool(phishing_language_matches),
+        bool(sender_identity_matches),
     ]
     heuristic_count = sum(heuristic_signals) + rspamd_weight
 
@@ -398,7 +400,8 @@ def compute_verdict(
         label = "Sicura"
 
     combined = (
-        html_attachment_reasons + brand_reasons + phishing_language_reasons + reply_to_reasons
+        html_attachment_reasons + brand_reasons + [m.reason for m in (sender_identity_matches or [])]
+        + phishing_language_reasons + reply_to_reasons
         + lookalike_reasons + vt_reasons + urlhaus_reasons + safebrowsing_reasons
         + domain_age_reasons + auth_reasons + rspamd_reasons
     )

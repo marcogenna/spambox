@@ -25,6 +25,7 @@ from spambox.worker.analyzers.brand_impersonation import (
 from spambox.worker.analyzers.html_attachment import find_html_attachment_phishing
 from spambox.worker.analyzers.lookalike import find_lookalike_matches
 from spambox.worker.analyzers.phishing_language import find_phishing_language
+from spambox.worker.analyzers.sender_identity import find_sender_identity_mismatch
 from spambox.worker.imap_client import ImapError, ImapSession
 from spambox.worker.mime_parser import parse_message
 from spambox.worker.responder import send_verdict_email
@@ -203,6 +204,7 @@ def process_one_message(
         quoted_reply_to_domains=parsed.quoted_reply_to_domains,
         html_attachment_phishing_matches=html_attachment_phishing_matches,
         phishing_language_matches=phishing_language_matches,
+        sender_identity_matches=find_sender_identity_mismatch(parsed.quoted_addresses),
     )
 
     response_sent = False

@@ -104,6 +104,7 @@ class ParsedMessage:
     quoted_senders: list[tuple[str, str]] = field(default_factory=list)  # (display_name, domain)
     quoted_from_domains: list[str] = field(default_factory=list)
     quoted_reply_to_domains: list[str] = field(default_factory=list)
+    quoted_addresses: list[tuple[str, str]] = field(default_factory=list)  # (display_name, email)
 
 
 def _strip_html_tags(html: str) -> str:
@@ -193,6 +194,16 @@ def _extract_quoted_senders(
     return found, from_domains, reply_to_domains
 
 
+def _extract_quoted_addresses(text_body: str, html_body: str) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    for text in (text_body, html_body):
+        for display_name, email_addr in _FORWARD_FROM_LINE_RE.findall(text or ""):
+            item = (display_name.strip().strip("<>\"'").strip(), email_addr.lower())
+            if item not in found:
+                found.append(item)
+    return found
+
+
 def _domain_from_address(address: str) -> str:
     if "@" not in address:
         return ""
@@ -279,7 +290,7 @@ def parse_message(raw_bytes: bytes, message: Message) -> ParsedMessage:
             text_body = decoded
 
     plain_from_html = _strip_html_tags(html_body) if html_body else ""
-    urls = _extract_urls(text_body, html_body)
+    urls = _extract_urls(text_body, html_body, *(a.text_content for a in attachments))
     from_domain = _domain_from_address(from_addr)
     quoted_senders, quoted_from_domains, quoted_reply_to_domains = _extract_quoted_senders(
         text_body, html_body, from_domain
@@ -304,4 +315,5 @@ def parse_message(raw_bytes: bytes, message: Message) -> ParsedMessage:
         quoted_senders=quoted_senders,
         quoted_from_domains=quoted_from_domains,
         quoted_reply_to_domains=quoted_reply_to_domains,
+        quoted_addresses=_extract_quoted_addresses(text_body, html_body),
     )
