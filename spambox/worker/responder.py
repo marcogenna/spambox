@@ -37,6 +37,10 @@ SUMMARY_BY_LABEL = {
         "Non abbiamo trovato elementi di rischio tali da considerarla pericolosa, "
         "anche se qualche dettaglio minore è comunque riportato qui sotto."
     ),
+    "Spam promozionale": (
+        "Non risulta un tentativo di truffa, ma è un'email promozionale o di spam non richiesta "
+        "(tipo mailing list)."
+    ),
     "Sospetta": "Abbiamo trovato alcuni elementi sospetti: ti consigliamo di fare attenzione.",
     "Altamente pericolosa": "Abbiamo trovato elementi che indicano con buona probabilità un tentativo di truffa o phishing.",
 }
@@ -45,6 +49,7 @@ NO_RISK_FOUND_REASON = "Nessun elemento di rischio significativo rilevato dalle 
 
 ADVICE_BY_LABEL = {
     "Sicura": "Nessuna azione particolare richiesta, ma mantieni sempre prudenza con link e allegati inattesi.",
+    "Spam promozionale": "Puoi ignorarla o cancellarla. Se non vuoi più riceverla, usa la funzione di disiscrizione solo se conosci il mittente.",
     "Sospetta": "Evita di cliccare sui link e non fornire dati personali finché non sei certo della fonte.",
     "Altamente pericolosa": "Non cliccare sui link e non aprire gli allegati. In caso di dubbi contatta il supporto IT.",
 }

@@ -386,8 +386,15 @@ def compute_verdict(
     ]
     heuristic_count = sum(heuristic_signals) + rspamd_weight
 
+    # Solo rspamd ha qualcosa da dire e nessun indizio di minaccia: è spam
+    # (tipicamente promozionale), non un tentativo di truffa. Etichetta a
+    # parte, con punteggio sotto la soglia "Sospetta".
+    spam_only = not any(confirmed_malicious) and heuristic_count == 1 and rspamd_weight == 1
+
     if any(confirmed_malicious):
         total = max(total, config.threshold_pericolosa)
+    elif spam_only:
+        total = min(max(total, config.threshold_sospetta * 0.75), config.threshold_sospetta - 0.1)
     elif heuristic_count >= 1:
         total = max(total, config.threshold_sospetta)
         if heuristic_count >= 2:
@@ -395,7 +402,9 @@ def compute_verdict(
 
     total = round(min(total, 10.0), 2)
 
-    if total >= config.threshold_pericolosa:
+    if spam_only:
+        label = "Spam promozionale"
+    elif total >= config.threshold_pericolosa:
         label = "Altamente pericolosa"
     elif total >= config.threshold_sospetta:
         label = "Sospetta"

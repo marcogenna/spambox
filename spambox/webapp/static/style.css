@@ -97,6 +97,7 @@ button.danger { background: var(--danger); }
 }
 
 .verdict-sicura .badge { background: #d1fae5; color: var(--safe); }
+.verdict-spam-promozionale .badge { background: #e0e7ff; color: #4338ca; }
 .verdict-sospetta .badge { background: var(--warn-bg); color: var(--suspect); }
 .verdict-altamente-pericolosa .badge { background: #fee2e2; color: var(--dangerous); }
 .verdict-ignorata .badge { background: #e5e7eb; color: var(--muted); }

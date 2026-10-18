@@ -8,6 +8,7 @@
   <select name="verdict">
     <option value="" {% if not filters.verdict %}selected{% endif %}>Tutti i verdetti</option>
     <option value="Sicura" {% if filters.verdict == "Sicura" %}selected{% endif %}>Sicura</option>
+    <option value="Spam promozionale" {% if filters.verdict == "Spam promozionale" %}selected{% endif %}>Spam promozionale</option>
     <option value="Sospetta" {% if filters.verdict == "Sospetta" %}selected{% endif %}>Sospetta</option>
     <option value="Altamente pericolosa" {% if filters.verdict == "Altamente pericolosa" %}selected{% endif %}>Altamente pericolosa</option>
     <option value="Ignorata" {% if filters.verdict == "Ignorata" %}selected{% endif %}>Ignorata (mittente non autorizzato)</option>
