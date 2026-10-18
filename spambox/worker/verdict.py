@@ -37,6 +37,8 @@ RSPAMD_SYMBOL_TRANSLATIONS: dict[str, str] = {
     "R_SPF_FAIL": "Il server che ha inviato il messaggio non è autorizzato per quel dominio (SPF)",
     "R_DKIM_REJECT": "La firma digitale di autenticità del messaggio non è valida (DKIM)",
     "MIME_SUSPECT_EXE": "Il messaggio contiene un allegato potenzialmente pericoloso",
+    "ABUSE_SURBL": "Un dominio presente nel messaggio (spesso un link di tracciamento) è segnalato nelle blacklist antispam per abusi",
+    "RSPAMD_URIBL": "Un link nel messaggio punta a un dominio presente nelle blacklist antispam",
     "FAKE_REPLY": "L'oggetto finge di essere la risposta a una conversazione mai avvenuta, tecnica comune nello spam/phishing per sembrare più legittimo",
 }
 
@@ -368,11 +370,12 @@ def compute_verdict(
     rspamd_action_flagged = rspamd_result.get("action") in (
         "add header", "rewrite subject", "soft reject", "reject"
     )
-    rspamd_weight = 0
-    if rspamd_action_flagged:
-        rspamd_required = rspamd_result.get("required_score") or 15.0
-        rspamd_ratio = (rspamd_result.get("score") or 0.0) / rspamd_required if rspamd_required else 0.0
-        rspamd_weight = 2 if rspamd_ratio >= 0.8 else 1
+    # rspamd misura quanto un messaggio È SPAM, non quanto è PERICOLOSO: un
+    # punteggio quasi-reject può venire da una normale mailing list i cui
+    # domini di tracciamento sono in blacklist (caso reale: ANTBIO, 14.6/15).
+    # Quindi pesa sempre come UN solo indizio (al massimo "Sospetta"); per
+    # "Altamente pericolosa" serve un segnale di minaccia indipendente.
+    rspamd_weight = 1 if rspamd_action_flagged else 0
 
     heuristic_signals = [
         bool(lookalike_matches),
