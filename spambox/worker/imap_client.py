@@ -87,16 +87,33 @@ class ImapSession:
         UID restano invece stabili per tutta la sessione.
         """
         assert self.conn is not None
-        typ, _ = self.conn.select(self.config.mailbox)
+        # Oltre alla cartella principale si controllano anche quelle extra
+        # (es. Junk/spam): il server può smistarvi le email inoltrate prima
+        # che arrivino in INBOX. Il generatore resta sulla cartella
+        # corrente finché non ha esaurito i suoi messaggi, quindi
+        # delete_message()/mark_seen_only() chiamati dal consumatore
+        # agiscono sempre sulla cartella giusta.
+        yield from self._fetch_from_mailbox(self.config.mailbox, required=True)
+        for extra in self.config.extra_mailboxes:
+            yield from self._fetch_from_mailbox(extra, required=False)
+
+    def _fetch_from_mailbox(
+        self, mailbox: str, required: bool
+    ) -> Iterator[tuple[str, bytes, Message]]:
+        assert self.conn is not None
+        typ, _ = self.conn.select(mailbox)
         if typ != "OK":
-            raise ImapError(f"Impossibile selezionare la mailbox {self.config.mailbox}")
+            if required:
+                raise ImapError(f"Impossibile selezionare la mailbox {mailbox}")
+            logger.warning("Cartella extra %s non selezionabile: saltata", mailbox)
+            return
 
         typ, data = self.conn.uid("search", None, "UNSEEN")
         if typ != "OK":
-            raise ImapError("Ricerca IMAP UNSEEN fallita")
+            raise ImapError(f"Ricerca IMAP UNSEEN fallita in {mailbox}")
 
         uids = data[0].split()
-        logger.info("Trovati %d messaggi non elaborati", len(uids))
+        logger.info("Trovati %d messaggi non elaborati in %s", len(uids), mailbox)
 
         for uid_bytes in uids:
             uid = uid_bytes.decode()

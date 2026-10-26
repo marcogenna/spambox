@@ -35,6 +35,7 @@ class ImapConfig:
     connect_timeout: int
     max_retries: int
     retry_backoff_seconds: int
+    extra_mailboxes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -187,6 +188,7 @@ def load_config(path: str | Path | None = None) -> Config:
         connect_timeout=int(imap_raw["connect_timeout"]),
         max_retries=int(imap_raw["max_retries"]),
         retry_backoff_seconds=int(imap_raw["retry_backoff_seconds"]),
+        extra_mailboxes=list(imap_raw.get("extra_mailboxes") or []),
     )
     smtp = SmtpConfig(
         host=smtp_raw["host"],

@@ -16,6 +16,10 @@ imap:
   # Il nome/prefisso dipende dal server: verificarlo con un LIST IMAP
   # (es. su Bluehost/Dovecot è tipicamente "INBOX.Sent").
   sent_mailbox: "INBOX.Sent"
+  # Cartelle aggiuntive da controllare oltre a "mailbox": il server di posta
+  # può smistare le email inoltrate in Junk/Spam invece che in INBOX. Le
+  # cartelle inesistenti vengono saltate con un avviso nel log.
+  extra_mailboxes: ["INBOX.Junk", "INBOX.spam"]
   connect_timeout: 30
   max_retries: 3
   retry_backoff_seconds: 5
